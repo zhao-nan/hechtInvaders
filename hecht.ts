@@ -1,22 +1,139 @@
+class Player {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    speed: number;
+    bullets: any[];
+    isGrabbing: boolean;
+    lastShotTime: number;
+
+    constructor(x: number, y: number, width: number, height: number, speed: number) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.speed = speed;
+        this.bullets = [];
+        this.isGrabbing = false;
+        this.lastShotTime = 0;
+    }
+
+    moveUp() {
+        this.y -= this.speed;
+        if (this.y < 0) this.y = 0;
+    }
+
+    moveDown() {
+        this.y += this.speed;
+        if (this.y + this.height > canvas.height) this.y = canvas.height - this.height;
+    }
+
+    shoot() {
+        const currentTime = Date.now();
+        if (currentTime - this.lastShotTime >= 500) {
+            this.bullets.push({ x: this.x + this.width, y: this.y + this.height / 2, width: 5, height: 2, speed: 5 });
+            this.lastShotTime = currentTime;
+        }
+    }
+
+    grab() {
+        this.isGrabbing = true;
+    }
+
+    release() {
+        this.isGrabbing = false;
+    }
+
+    update() {
+        // Update bullets
+        this.bullets.forEach(bullet => {
+            bullet.x += bullet.speed;
+        });
+
+        // Remove bullets that are off-screen
+        this.bullets = this.bullets.filter(bullet => bullet.x < canvas.width);
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.fillStyle = 'green';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Draw bullets
+        ctx.fillStyle = 'yellow';
+        this.bullets.forEach(bullet => {
+            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+
+        // Draw grabbing indicator
+        if (this.isGrabbing) {
+            ctx.strokeStyle = 'blue';
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+        }
+    }
+}
+
+class Star {
+    x: number;
+    y: number;
+    size: number;
+    speed: number;
+
+    constructor(x: number, y: number, size: number, speed: number) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.speed = speed;
+    }
+
+    update() {
+        this.x -= this.speed;
+        if (this.x < 0) {
+            this.x = canvas.width;
+            this.y = Math.random() * canvas.height;
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x, this.y, this.size, this.size);
+    }
+}
+
 // Initialize the canvas and context
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
+const player = new Player(50, canvas.height / 2 - 25, 50, 50, 5);
+
+
+// Initialize stars
+const stars: Star[] = [];
+for (let i = 0; i < 100; i++) {
+    stars.push(new Star(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, Math.random() * 2 + 1));
+}
 
 // Define game variables
-let player = { x: 50, y: canvas.height / 2, width: 20, height: 20, speed: 5 };
 let objects: any[] = [];
 let enemies: any[] = [];
-let keys: { [key: string]: boolean } = {};
-
-// Handle keyboard input
-window.addEventListener('keydown', (e) => keys[e.key] = true);
-window.addEventListener('keyup', (e) => keys[e.key] = false);
 
 // Update game objects
 function update() {
-    // Move player
-    if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
-    if (keys['ArrowDown'] && player.y < canvas.height - player.height) player.y += player.speed;
+    stars.forEach(star => star.update());
+    if (keysPressed.has('ArrowUp')) {
+        player.moveUp();
+    }
+    if (keysPressed.has('ArrowDown')) {
+        player.moveDown();
+    }
+    if (keysPressed.has(' ')) {
+        player.shoot();
+    }
+    if (keysPressed.has('g')) {
+        player.grab();
+    } else {
+        player.release();
+    }
+    player.update();
 
     // Move objects and enemies
     objects.forEach(obj => obj.x -= 2);
@@ -32,6 +149,9 @@ function draw() {
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    stars.forEach(star => star.draw(ctx));
+    player.draw(ctx);
+
     // Draw player
     ctx.fillStyle = 'green';
     ctx.fillRect(player.x, player.y, player.width, player.height);
@@ -44,6 +164,18 @@ function draw() {
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height));
 }
+
+// Set to store currently pressed keys
+const keysPressed = new Set<string>();
+
+// Event listeners for key presses
+window.addEventListener('keydown', (e) => {
+    keysPressed.add(e.key);
+});
+
+window.addEventListener('keyup', (e) => {
+    keysPressed.delete(e.key);
+});
 
 // Main game loop
 function gameLoop() {
