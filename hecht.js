@@ -8,6 +8,12 @@ class Player {
         this.bullets = [];
         this.isGrabbing = false;
         this.lastShotTime = 0;
+        this.lives = 3;
+        this.points = 0;
+        this.inventory = [];
+        this.canGrab = false;
+        this.boom = 1;
+        this.dakka = 1;
     }
     moveUp() {
         this.y -= this.speed;
@@ -21,8 +27,8 @@ class Player {
     }
     shoot() {
         const currentTime = Date.now();
-        if (currentTime - this.lastShotTime >= 500) {
-            this.bullets.push({ x: this.x + this.width, y: this.y + this.height / 2, width: 5, height: 2, speed: 5 });
+        if (currentTime - this.lastShotTime >= 1000 / this.dakka) {
+            this.bullets.push({ x: this.x + this.width, y: this.y + this.height / 2, width: 5, height: this.boom, speed: this.dakka });
             this.lastShotTime = currentTime;
         }
     }
@@ -32,6 +38,29 @@ class Player {
     release() {
         this.isGrabbing = false;
     }
+    addToInventory(obj) {
+        switch (obj.type) {
+            case GameObjectType.SCHNAPPS:
+                if (this.lives < 5)
+                    this.lives += 1;
+                break;
+            case GameObjectType.SABER:
+                this.inventory.push(obj);
+                break;
+            case GameObjectType.R2D2:
+                this.inventory.push(obj);
+                break;
+            case GameObjectType.YODA:
+                this.inventory.push(obj);
+                break;
+            case GameObjectType.BLASTER:
+                this.boom += 1;
+                break;
+            case GameObjectType.SPEEDUP:
+                this.dakka += 1;
+                break;
+        }
+    }
     update() {
         // Update bullets
         this.bullets.forEach(bullet => {
@@ -39,9 +68,50 @@ class Player {
         });
         // Remove bullets that are off-screen
         this.bullets = this.bullets.filter(bullet => bullet.x < canvas.width);
+        // Check for collisions with enemies
+        enemies.forEach(enemy => {
+            if (enemy.isCollidingWith(this)) {
+                this.lives -= 1;
+                enemies.splice(enemies.indexOf(enemy), 1);
+                if (this.lives <= 0) {
+                    // Game over
+                    alert('Game Over!');
+                    // Reset player position and lives
+                    this.x = 50;
+                    this.y = canvas.height / 2 - 25;
+                    this.lives = 3;
+                    this.points = 0;
+                }
+            }
+            this.bullets.forEach(bullet => {
+                if (enemy.isHitBy(bullet)) {
+                    enemy.lives -= bullet.height;
+                    enemy.width = 20 + enemy.lives * 10;
+                    enemy.height = 20 + enemy.lives * 10;
+                    if (enemy.lives <= 0) {
+                        // Remove enemy if lives are 0
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        this.points += Math.floor(enemy.strength);
+                    }
+                    // Remove bullet
+                    this.bullets.splice(this.bullets.indexOf(bullet), 1);
+                }
+            });
+        });
+        // Grab objects
+        this.canGrab = false;
+        objects.forEach(obj => {
+            if (obj.isCloseEnough(this)) {
+                this.canGrab = true;
+            }
+            if (obj.isCloseEnough(this) && this.isGrabbing) {
+                this.addToInventory(obj);
+                objects.splice(objects.indexOf(obj), 1);
+            }
+        });
     }
     draw(ctx) {
-        ctx.fillStyle = 'green';
+        ctx.fillStyle = this.canGrab ? 'teal' : 'green';
         ctx.fillRect(this.x, this.y, this.width, this.height);
         // Draw bullets
         ctx.fillStyle = 'yellow';
@@ -53,6 +123,87 @@ class Player {
             ctx.strokeStyle = 'blue';
             ctx.strokeRect(this.x, this.y, this.width, this.height);
         }
+    }
+}
+class Enemy {
+    constructor(x, y, width, height, speed, lives) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.speed = speed;
+        this.lives = lives;
+        this.strength = lives * speed * 10;
+    }
+    update() {
+        this.x -= this.speed;
+        this.width = 20 + this.lives * 10;
+        this.height = 20 + this.lives * 10;
+    }
+    draw(ctx) {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+    isCollidingWith(player) {
+        return this.x < player.x + player.width &&
+            this.x + this.width > player.x &&
+            this.y < player.y + player.height &&
+            this.y + this.height > player.y;
+    }
+    isHitBy(bullet) {
+        return this.x < bullet.x + bullet.width &&
+            this.x + this.width > bullet.x &&
+            this.y < bullet.y + bullet.height &&
+            this.y + this.height > bullet.y;
+    }
+}
+var GameObjectType;
+(function (GameObjectType) {
+    GameObjectType[GameObjectType["SCHNAPPS"] = 0] = "SCHNAPPS";
+    GameObjectType[GameObjectType["SABER"] = 1] = "SABER";
+    GameObjectType[GameObjectType["R2D2"] = 2] = "R2D2";
+    GameObjectType[GameObjectType["YODA"] = 3] = "YODA";
+    GameObjectType[GameObjectType["BLASTER"] = 4] = "BLASTER";
+    GameObjectType[GameObjectType["SPEEDUP"] = 5] = "SPEEDUP";
+})(GameObjectType || (GameObjectType = {}));
+class GameObject {
+    constructor(x, y, width, height, type) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.type = type;
+        this.image = new Image();
+        switch (this.type) {
+            case GameObjectType.SCHNAPPS:
+                this.image.src = 'img/schnaps.png';
+                break;
+            case GameObjectType.SABER:
+                this.image.src = 'img/lightsaber.png';
+                break;
+            case GameObjectType.R2D2:
+                this.image.src = 'img/r2d2.png';
+                break;
+            case GameObjectType.YODA:
+                this.image.src = 'img/yoda.png';
+                break;
+            case GameObjectType.BLASTER:
+                this.image.src = 'img/blaster.png';
+                break;
+            case GameObjectType.SPEEDUP:
+                this.image.src = 'img/speedcannon.png';
+                break;
+        }
+    }
+    update() {
+        this.x -= 2; // Move objects to the left
+    }
+    draw(ctx) {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+    }
+    isCloseEnough(player) {
+        const distance = Math.hypot(this.x - player.x, this.y - player.y);
+        return distance < 100;
     }
 }
 class Star {
@@ -78,15 +229,45 @@ class Star {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const player = new Player(50, canvas.height / 2 - 25, 50, 50, 5);
+let lastEnemySpawnTime = 0;
+let lastObjectSpawnTime = 0;
 // Initialize stars
 const stars = [];
 for (let i = 0; i < 100; i++) {
     stars.push(new Star(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, Math.random() * 2 + 1));
 }
-// Define game variables
-let objects = [];
-let enemies = [];
-// Update game objects
+// Initialize enemies
+const enemies = [];
+function spawnEnemy() {
+    const x = canvas.width;
+    const y = Math.random() * (canvas.height - 50);
+    const lives = Math.floor(Math.random() * 5) + 1;
+    const speed = Math.random() * 2 + 1;
+    const width = 20 + lives * 10;
+    const height = 20 + lives * 10;
+    enemies.push(new Enemy(x, y, width, height, speed, lives));
+}
+// Initialize objects
+const objects = [];
+function spawnObject() {
+    const x = canvas.width;
+    const y = Math.random() * (canvas.height - 50);
+    const width = 30;
+    const height = 30;
+    let type;
+    const random = Math.random();
+    if (random < 0.1 && !player.inventory.concat(objects).some(item => item.type === GameObjectType.YODA)) {
+        type = GameObjectType.YODA;
+    }
+    else if (random < 0.2 && !player.inventory.concat(objects).some(item => item.type === GameObjectType.R2D2)) {
+        type = GameObjectType.R2D2;
+    }
+    else {
+        const types = [GameObjectType.SCHNAPPS, GameObjectType.SABER, GameObjectType.BLASTER, GameObjectType.SPEEDUP];
+        type = types[Math.floor(Math.random() * types.length)];
+    }
+    objects.push(new GameObject(x, y, width, height, type));
+}
 function update() {
     stars.forEach(star => star.update());
     if (keysPressed.has('ArrowUp')) {
@@ -98,19 +279,26 @@ function update() {
     if (keysPressed.has(' ')) {
         player.shoot();
     }
-    if (keysPressed.has('g')) {
+    // Check for grabbing objects
+    if (keysPressed.has('Enter')) {
         player.grab();
     }
     else {
         player.release();
     }
     player.update();
+    const currentTime = Date.now();
+    if (currentTime - lastEnemySpawnTime >= 5000 + Math.random() * 5000) {
+        spawnEnemy();
+        lastEnemySpawnTime = currentTime;
+    }
+    if (currentTime - lastObjectSpawnTime >= 5000 + Math.random() * 10000) {
+        spawnObject();
+        lastObjectSpawnTime = currentTime;
+    }
     // Move objects and enemies
-    objects.forEach(obj => obj.x -= 2);
-    enemies.forEach(enemy => enemy.x -= 3);
-    // Remove off-screen objects and enemies
-    objects = objects.filter(obj => obj.x + obj.width > 0);
-    enemies = enemies.filter(enemy => enemy.x + enemy.width > 0);
+    objects.forEach(obj => obj.update());
+    enemies.forEach(enemy => enemy.update());
 }
 // Draw game objects
 function draw() {
@@ -118,15 +306,19 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     stars.forEach(star => star.draw(ctx));
     player.draw(ctx);
-    // Draw player
-    ctx.fillStyle = 'green';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
     // Draw objects
-    ctx.fillStyle = 'blue';
-    objects.forEach(obj => ctx.fillRect(obj.x, obj.y, obj.width, obj.height));
+    objects.forEach(o => o.draw(ctx));
     // Draw enemies
     ctx.fillStyle = 'red';
     enemies.forEach(enemy => ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height));
+    // Draw status bar
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Arial';
+    ctx.fillText("❤️ ".repeat(player.lives), 10, 20);
+    ctx.fillText(`Points: ${player.points}`, 100, 20);
+    player.inventory.forEach((item, index) => {
+        ctx.drawImage(item.image, 200 + index * 40, 5, 30, 30);
+    });
 }
 // Set to store currently pressed keys
 const keysPressed = new Set();
