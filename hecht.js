@@ -1,3 +1,5 @@
+let audio = new Audio('Cantina.mp3');
+audio.play();
 class Player {
     constructor(x, y, width, height, speed) {
         this.x = x;
@@ -14,6 +16,8 @@ class Player {
         this.canGrab = false;
         this.boom = 1;
         this.dakka = 1;
+        this.shields = 0;
+        this.shieldFlash = false;
     }
     moveUp() {
         this.y -= this.speed;
@@ -28,7 +32,11 @@ class Player {
     shoot() {
         const currentTime = Date.now();
         if (currentTime - this.lastShotTime >= 1000 / this.dakka) {
-            this.bullets.push({ x: this.x + this.width, y: this.y + this.height / 2, width: 5, height: this.boom, speed: this.dakka });
+            this.bullets.push({ x: this.x + this.width,
+                y: this.y + this.height / 2,
+                width: this.boom + 1,
+                height: this.boom + 1,
+                speed: 1 + this.dakka });
             this.lastShotTime = currentTime;
         }
     }
@@ -39,26 +47,26 @@ class Player {
         this.isGrabbing = false;
     }
     addToInventory(obj) {
-        switch (obj.type) {
-            case GameObjectType.SCHNAPPS:
-                if (this.lives < 5)
-                    this.lives += 1;
-                break;
-            case GameObjectType.SABER:
-                this.inventory.push(obj);
-                break;
-            case GameObjectType.R2D2:
-                this.inventory.push(obj);
-                break;
-            case GameObjectType.YODA:
-                this.inventory.push(obj);
-                break;
-            case GameObjectType.BLASTER:
-                this.boom += 1;
-                break;
-            case GameObjectType.SPEEDUP:
-                this.dakka += 1;
-                break;
+        if (rareObjectTypes.some(t => t === obj.type)) {
+            this.inventory.push(obj);
+        }
+        else {
+            switch (obj.type) {
+                case GameObjectType.SCHNAPPS:
+                    if (this.lives < 5)
+                        this.lives += 1;
+                    break;
+                case GameObjectType.BLASTER:
+                    this.boom += 1;
+                    break;
+                case GameObjectType.SPEEDUP:
+                    this.dakka += 1 / 10;
+                    break;
+                case GameObjectType.SHIELD:
+                    if (this.shields < 5)
+                        this.shields += 1;
+                    break;
+            }
         }
     }
     update() {
@@ -71,7 +79,14 @@ class Player {
         // Check for collisions with enemies
         enemies.forEach(enemy => {
             if (enemy.isCollidingWith(this)) {
-                this.lives -= 1;
+                if (this.shields > 0) {
+                    this.shields -= 1;
+                    this.shieldFlash = true;
+                    setTimeout(() => this.shieldFlash = false, 100);
+                }
+                else {
+                    this.lives -= 1;
+                }
                 enemies.splice(enemies.indexOf(enemy), 1);
                 if (this.lives <= 0) {
                     // Game over
@@ -111,17 +126,29 @@ class Player {
         });
     }
     draw(ctx) {
-        ctx.fillStyle = this.canGrab ? 'teal' : 'green';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        const hechtImage = new Image();
+        hechtImage.src = this.isGrabbing ? 'img/hecht-grab.png' : 'img/hecht.png';
+        ctx.drawImage(hechtImage, this.x, this.y, this.width, this.height);
+        // Draw shield
+        for (let i = 0; i < this.shields; i++) {
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2 + 10 + 3 * i, 0, 2 * Math.PI);
+            ctx.strokeStyle = `rgba(50, 50, ${i * 50})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
         // Draw bullets
         ctx.fillStyle = 'yellow';
         this.bullets.forEach(bullet => {
             ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
         });
-        // Draw grabbing indicator
-        if (this.isGrabbing) {
-            ctx.strokeStyle = 'blue';
-            ctx.strokeRect(this.x, this.y, this.width, this.height);
+        // Draw shield flash
+        if (this.shieldFlash) {
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2 + 10, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
     }
 }
@@ -160,12 +187,16 @@ class Enemy {
 var GameObjectType;
 (function (GameObjectType) {
     GameObjectType[GameObjectType["SCHNAPPS"] = 0] = "SCHNAPPS";
-    GameObjectType[GameObjectType["SABER"] = 1] = "SABER";
-    GameObjectType[GameObjectType["R2D2"] = 2] = "R2D2";
-    GameObjectType[GameObjectType["YODA"] = 3] = "YODA";
-    GameObjectType[GameObjectType["BLASTER"] = 4] = "BLASTER";
-    GameObjectType[GameObjectType["SPEEDUP"] = 5] = "SPEEDUP";
+    GameObjectType[GameObjectType["SHIELD"] = 1] = "SHIELD";
+    GameObjectType[GameObjectType["LEIA"] = 2] = "LEIA";
+    GameObjectType[GameObjectType["SABER"] = 3] = "SABER";
+    GameObjectType[GameObjectType["R2D2"] = 4] = "R2D2";
+    GameObjectType[GameObjectType["YODA"] = 5] = "YODA";
+    GameObjectType[GameObjectType["BLASTER"] = 6] = "BLASTER";
+    GameObjectType[GameObjectType["SPEEDUP"] = 7] = "SPEEDUP";
 })(GameObjectType || (GameObjectType = {}));
+const rareObjectTypes = [GameObjectType.YODA, GameObjectType.R2D2, GameObjectType.LEIA, GameObjectType.SABER];
+const normalObjectTypes = [GameObjectType.SCHNAPPS, GameObjectType.BLASTER, GameObjectType.SPEEDUP, GameObjectType.SHIELD];
 class GameObject {
     constructor(x, y, width, height, type) {
         this.x = x;
@@ -177,6 +208,12 @@ class GameObject {
         switch (this.type) {
             case GameObjectType.SCHNAPPS:
                 this.image.src = 'img/schnaps.png';
+                break;
+            case GameObjectType.SHIELD:
+                this.image.src = 'img/shield.png';
+                break;
+            case GameObjectType.LEIA:
+                this.image.src = 'img/leia.png';
                 break;
             case GameObjectType.SABER:
                 this.image.src = 'img/lightsaber.png';
@@ -228,7 +265,7 @@ class Star {
 // Initialize the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const player = new Player(50, canvas.height / 2 - 25, 50, 50, 5);
+const player = new Player(50, canvas.height / 2 - 25, 60, 35, 5);
 let lastEnemySpawnTime = 0;
 let lastObjectSpawnTime = 0;
 // Initialize stars
@@ -256,15 +293,18 @@ function spawnObject() {
     const height = 30;
     let type;
     const random = Math.random();
-    if (random < 0.1 && !player.inventory.concat(objects).some(item => item.type === GameObjectType.YODA)) {
-        type = GameObjectType.YODA;
-    }
-    else if (random < 0.2 && !player.inventory.concat(objects).some(item => item.type === GameObjectType.R2D2)) {
-        type = GameObjectType.R2D2;
+    if (random < 0.1) {
+        const availableRareTypes = rareObjectTypes.filter(t => !player.inventory.some(item => item.type === t) &&
+            !objects.some(obj => obj.type === t));
+        if (availableRareTypes.length > 0) {
+            type = availableRareTypes[Math.floor(Math.random() * availableRareTypes.length)];
+        }
+        else {
+            type = normalObjectTypes[Math.floor(Math.random() * normalObjectTypes.length)];
+        }
     }
     else {
-        const types = [GameObjectType.SCHNAPPS, GameObjectType.SABER, GameObjectType.BLASTER, GameObjectType.SPEEDUP];
-        type = types[Math.floor(Math.random() * types.length)];
+        type = normalObjectTypes[Math.floor(Math.random() * normalObjectTypes.length)];
     }
     objects.push(new GameObject(x, y, width, height, type));
 }
@@ -292,7 +332,7 @@ function update() {
         spawnEnemy();
         lastEnemySpawnTime = currentTime;
     }
-    if (currentTime - lastObjectSpawnTime >= 5000 + Math.random() * 10000) {
+    if (currentTime - lastObjectSpawnTime >= 500 + Math.random() * 1000) {
         spawnObject();
         lastObjectSpawnTime = currentTime;
     }
