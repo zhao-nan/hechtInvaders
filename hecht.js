@@ -12,7 +12,7 @@ class Player {
         this.isGrabbing = false;
         this.lastShotTime = 0;
         this.lastDiscTime = 0;
-        this.lives = 3;
+        this.lives = 2;
         this.points = 0;
         this.inventory = [];
         this.canGrab = false;
@@ -20,6 +20,8 @@ class Player {
         this.dakka = 1;
         this.shields = 0;
         this.shieldFlash = false;
+        this.damageFlash = false;
+        this.isShooting = false;
     }
     moveUp() {
         this.y -= this.speed;
@@ -34,20 +36,24 @@ class Player {
     shoot() {
         const currentTime = Date.now();
         if (currentTime - this.lastShotTime >= 1000 / this.dakka) {
-            this.bullets.push(new Bullet(this.x + this.width, this.y + this.height / 2, this.boom + 1, 1 + this.dakka, true, false, this.boom));
+            this.bullets.push(new Bullet(this.x + this.width, this.y + this.height / 2, (this.boom + 8) / 2, 1 + this.dakka, true, false, this.boom));
             this.lastShotTime = currentTime;
+            this.isShooting = true;
+            setTimeout(() => this.isShooting = false, 100);
         }
     }
     throwDisc() {
         const currentTime = Date.now();
         if (currentTime - this.lastDiscTime >= 200) {
             if (this.inventory.some(item => item.type === GameObjectType.DISC)) {
-                this.bullets.push(new Bullet(this.x + this.width, this.y + this.height / 2, 10, 1 + this.dakka, true, true, 50 + this.boom * 5));
+                this.bullets.push(new Bullet(this.x + this.width, this.y + this.height / 2, 20, 10 + (this.dakka / 2), true, true, 50 + this.boom * 3));
                 const discIndex = this.inventory.findIndex(item => item.type === GameObjectType.DISC);
                 if (discIndex !== -1) {
                     this.inventory.splice(discIndex, 1);
                 }
                 this.lastDiscTime = currentTime;
+                this.isShooting = true;
+                setTimeout(() => this.isShooting = false, 200);
             }
         }
     }
@@ -71,7 +77,7 @@ class Player {
                     this.boom += 1;
                     break;
                 case GameObjectType.SPEEDUP:
-                    this.dakka += 1 / 10;
+                    this.dakka += 2 / 10;
                     break;
                 case GameObjectType.SHIELD:
                     if (this.shields < 5)
@@ -82,6 +88,13 @@ class Player {
                     break;
             }
         }
+        this.inventory.sort((a, b) => {
+            if (a.type === GameObjectType.DISC)
+                return 1;
+            if (b.type === GameObjectType.DISC)
+                return -1;
+            return a.type - b.type;
+        });
     }
     isHitBy(bullet) {
         return this.x < bullet.x + bullet.radius &&
@@ -89,9 +102,15 @@ class Player {
             this.y < bullet.y + bullet.radius &&
             this.y + this.height > bullet.y;
     }
+    loseLife(l) {
+        this.lives -= l;
+        this.damageFlash = true;
+        setTimeout(() => this.damageFlash = false, 200);
+        if (this.lives <= 0) {
+            explosions.push(new Explosion(this.x, this.y, this.width, this.height));
+        }
+    }
     update() {
-        if (this.lives <= 0)
-            lose();
         // Update bullets
         this.bullets.forEach(bullet => {
             bullet.x += bullet.speed;
@@ -112,10 +131,10 @@ class Player {
                     setTimeout(() => this.shieldFlash = false, 100);
                 }
                 else {
-                    this.lives -= 1;
+                    this.loseLife(1);
                 }
                 if (enemy.type === EnemyType.STARDESTROYER) {
-                    this.lives = 0;
+                    this.loseLife(this.lives);
                 }
                 else {
                     enemies.splice(enemies.indexOf(enemy), 1);
@@ -126,23 +145,14 @@ class Player {
             enemy.bullets.forEach(bullet => {
                 if (this.isHitBy(bullet)) {
                     if (this.shields > 0) {
-                        this.shields -= 1;
+                        this.shields = Math.max(0, this.shields - bullet.damage);
                         this.shieldFlash = true;
                         setTimeout(() => this.shieldFlash = false, 100);
                     }
                     else {
-                        this.lives -= 1;
+                        this.loseLife(bullet.damage);
                     }
                     enemy.bullets.splice(enemy.bullets.indexOf(bullet), 1);
-                    if (this.lives <= 0) {
-                        // Game over
-                        alert('Game Over!');
-                        // Reset player position and lives
-                        this.x = 50;
-                        this.y = canvas.height / 2 - 25;
-                        this.lives = 3;
-                        this.points = 0;
-                    }
                 }
             });
             this.bullets.forEach(bullet => {
@@ -154,7 +164,12 @@ class Player {
                         this.points += Math.floor(enemy.strength);
                         explosions.push(new Explosion(enemy.x, enemy.y, enemy.width, enemy.height));
                         if (enemy.type === EnemyType.VADER) {
-                            win();
+                            explosions.push(new Explosion(enemy.x, enemy.y, enemy.width + 50, enemy.height + 50));
+                            explosions.push(new Explosion(enemy.x + 50, enemy.y + 50, enemy.width, enemy.height));
+                            explosions.push(new Explosion(enemy.x - 50, enemy.y + 50, enemy.width, enemy.height));
+                            explosions.push(new Explosion(enemy.x + 50, enemy.y - 50, enemy.width, enemy.height));
+                            explosions.push(new Explosion(enemy.x - 50, enemy.y - 50, enemy.width, enemy.height));
+                            gameEnd(true);
                         }
                     }
                     // Remove bullet
@@ -177,6 +192,12 @@ class Player {
     draw(ctx) {
         const hechtImage = new Image();
         hechtImage.src = this.isGrabbing ? 'img/hecht-grab.png' : 'img/hecht.png';
+        if (this.isShooting) {
+            hechtImage.src = 'img/hecht-shoot.png';
+        }
+        if (this.damageFlash) {
+            hechtImage.src = 'img/hecht-dmg.png';
+        }
         ctx.drawImage(hechtImage, this.x, this.y, this.width, this.height);
         // Draw shield
         for (let i = 0; i < this.shields; i++) {
@@ -235,6 +256,7 @@ class Enemy {
     constructor(type, x, y, width, height, speed, lives) {
         this.bullets = [];
         this.lastShotTime = 0;
+        this.lastSpawnTime = 0;
         this.x = x;
         this.y = y;
         this.width = width;
@@ -245,6 +267,7 @@ class Enemy {
         this.lives = lives;
         this.strength = lives * speed * 10;
         this.lastShotTime = Date.now();
+        this.lastSpawnTime = Date.now();
         this.bullets = [];
         this.type = type;
         this.image = new Image();
@@ -265,6 +288,27 @@ class Enemy {
     }
     update() {
         this.x -= this.speed;
+        if (this.type === EnemyType.STARDESTROYER) {
+            this.SDshoot();
+        }
+        if (this.type === EnemyType.VADER) {
+            this.VaderShoot();
+            this.vaderSpawn();
+            let rand = Math.floor(Math.random() * 3);
+            if (rand == 0 && this.y < canvas.height - this.height && this.yspeed < 2) {
+                this.yspeed += 0.05;
+            }
+            else if (rand == 1 && this.y > 25 && this.yspeed > -2) {
+                this.yspeed -= 0.05;
+            }
+            if (this.y > canvas.height - this.height) {
+                this.yspeed = -0.1;
+            }
+            if (this.y < 25) {
+                this.yspeed = 0.1;
+            }
+            this.y += this.yspeed;
+        }
         if (this.type === EnemyType.TIEFIGHTER) {
             this.shoot();
             let rand = Math.floor(Math.random() * 3);
@@ -305,9 +349,36 @@ class Enemy {
     shoot() {
         const now = Date.now();
         if (now - this.lastShotTime > Math.random() * 1000 + 1750) {
-            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height, 5, this.speed * (-1) - 3, false, false, 1);
+            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height, 4, this.speed * (-1) - 3, false, false, 1);
             this.bullets.push(bullet);
             this.lastShotTime = now;
+        }
+    }
+    SDshoot() {
+        const now = Date.now();
+        if (now - this.lastShotTime > Math.random() * 5000 + 2000) {
+            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 10, -4, false, false, 3);
+            this.bullets.push(bullet);
+            this.lastShotTime = now;
+        }
+    }
+    VaderShoot() {
+        const now = Date.now();
+        if (now - this.lastShotTime > Math.random() * 1000 + 2000) {
+            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 5, Math.random() * (-10) - 2, false, false, 3);
+            this.bullets.push(bullet);
+            this.lastShotTime = now;
+        }
+    }
+    vaderSpawn() {
+        const now = Date.now();
+        if (now - this.lastSpawnTime > Math.random() * 10000 + 5000) {
+            let rand = Math.random();
+            let type = rand >= 0.5 ? EnemyType.STORMTROOPER : EnemyType.TIEFIGHTER;
+            for (let i = 0; i < Math.floor(rand * 22); i++) {
+                spawnEnemy(type, now - gameStartTime);
+            }
+            this.lastSpawnTime = now;
         }
     }
     isCollidingWith(player) {
@@ -441,6 +512,7 @@ let lastSTSpawnTime = 0;
 let lastTieSpawnTime = 0;
 let lastObjectSpawnTime = 0;
 let gameStartTime = Date.now();
+let gameOver = false;
 // Initialize stars
 const stars = [];
 for (let i = 0; i < 100; i++) {
@@ -449,28 +521,29 @@ for (let i = 0; i < 100; i++) {
 let explosions = [];
 // Initialize enemies
 let enemies = [];
-function spawnEnemy(t) {
+function spawnEnemy(t, elapsedTime) {
+    let timeFactor = Math.floor(1 + elapsedTime / 60000);
     let lives, speed, width, height;
     if (t === EnemyType.STORMTROOPER) {
-        lives = Math.floor(Math.random() * 5) + 1;
+        lives = Math.floor(Math.random() * 5) + 2 + timeFactor;
         speed = Math.random() * 2 + 1;
-        width = 20 + lives * 5;
-        height = 20 + lives * 5;
+        width = 20 + lives * 2;
+        height = 20 + lives * 2;
     }
     else if (t === EnemyType.TIEFIGHTER) {
-        lives = Math.floor(Math.random() * 10) + 1;
+        lives = Math.floor(Math.random() * 5) + 2;
         speed = Math.random() * 5 + 1;
         width = 30;
         height = 30;
     }
     else if (t === EnemyType.STARDESTROYER) {
-        lives = Math.floor(Math.random() * 100) + 50;
+        lives = Math.floor(Math.random() * 50) + 25 + 5 * timeFactor;
         speed = 2;
         width = 100;
         height = 100;
     }
     else if (t === EnemyType.VADER) {
-        lives = 150;
+        lives = 350;
         speed = 0.1;
         width = 100;
         height = 100;
@@ -501,9 +574,20 @@ function spawnObject() {
     else {
         type = normalObjectTypes[Math.floor(Math.random() * normalObjectTypes.length)];
     }
+    if (type === GameObjectType.DISC &&
+        player.inventory.filter(item => item.type === GameObjectType.DISC).length > 10) {
+        type = normalObjectTypes.filter(t => t !== GameObjectType.DISC)[Math.floor(Math.random() * (normalObjectTypes.length - 1))];
+    }
+    if (type === GameObjectType.SCHNAPPS &&
+        player.lives >= 5) {
+        type = normalObjectTypes.filter(t => t !== GameObjectType.SCHNAPPS)[Math.floor(Math.random() * (normalObjectTypes.length - 1))];
+    }
     objects.push(new GameObject(x, y, width, height, type));
 }
 function update() {
+    if (player.lives <= 0) {
+        gameEnd(false);
+    }
     stars.forEach(star => star.update());
     if (keysPressed.has('ArrowUp')) {
         player.moveUp();
@@ -525,43 +609,48 @@ function update() {
         player.throwDisc();
     }
     player.update();
-    const currentTime = Date.now();
-    const elapsedTime = currentTime - gameStartTime;
-    if (currentTime - lastSTSpawnTime >= 5000 + Math.random() * 5000) {
-        spawnEnemy(EnemyType.STORMTROOPER);
-        lastSTSpawnTime = currentTime;
-    }
-    if (elapsedTime > 0 && currentTime - lastTieSpawnTime >= 5000 + Math.random() * 5000) {
-        spawnEnemy(EnemyType.TIEFIGHTER);
-        lastTieSpawnTime = currentTime;
-    }
-    if (elapsedTime > 60000 && currentTime - lastSDSpawnTime >= 5000 + Math.random() * 5000) {
-        spawnEnemy(EnemyType.STARDESTROYER);
-        lastSDSpawnTime = currentTime;
-    }
-    if (elapsedTime > 120000
-        && !enemies.some(e => e.type === EnemyType.VADER)
-        && player.inventory.some(item => item.type === GameObjectType.LEIA)
-        && player.inventory.some(item => item.type === GameObjectType.SABER)
-        && player.inventory.some(item => item.type === GameObjectType.R2D2)
-        && player.inventory.some(item => item.type === GameObjectType.YODA)
-        && player.points > 5000) {
-        spawnEnemy(EnemyType.VADER);
-    }
-    if (currentTime - lastObjectSpawnTime >= 5000 + Math.random() * 5000) {
-        spawnObject();
-        lastObjectSpawnTime = currentTime;
-    }
+    spawn();
     // Move objects and enemies
     objects.forEach(obj => obj.update());
     // Catch your Disc!
     const outObj = objects.filter(obj => obj.isOutOfScreen());
     if (outObj.some(obj => obj.type === GameObjectType.DISC)) {
-        player.lives -= 1;
+        player.loseLife(1);
     }
     objects = objects.filter(obj => !obj.isOutOfScreen());
     enemies.forEach(enemy => enemy.update());
     enemies = enemies.filter(enemy => enemy.x + enemy.width > 0);
+}
+function spawn() {
+    const currentTime = Date.now();
+    const elapsedTime = currentTime - gameStartTime;
+    if (!enemies.some(e => e.type === EnemyType.VADER)) {
+        if (currentTime - lastSTSpawnTime >= 5000 + Math.random() * 5000) {
+            spawnEnemy(EnemyType.STORMTROOPER, elapsedTime);
+            lastSTSpawnTime = currentTime;
+        }
+        if (elapsedTime > 60000 && currentTime - lastTieSpawnTime >= 5000 + Math.random() * 5000) {
+            spawnEnemy(EnemyType.TIEFIGHTER, elapsedTime);
+            lastTieSpawnTime = currentTime;
+        }
+        if (elapsedTime > 120000 && currentTime - lastSDSpawnTime >= 5000 + Math.random() * 5000) {
+            spawnEnemy(EnemyType.STARDESTROYER, elapsedTime);
+            lastSDSpawnTime = currentTime;
+        }
+        if (elapsedTime > 240000
+            && !enemies.some(e => e.type === EnemyType.VADER)
+            && player.inventory.some(item => item.type === GameObjectType.LEIA)
+            && player.inventory.some(item => item.type === GameObjectType.SABER)
+            && player.inventory.some(item => item.type === GameObjectType.R2D2)
+            && player.inventory.some(item => item.type === GameObjectType.YODA)
+            && player.points > 10000) {
+            spawnEnemy(EnemyType.VADER, elapsedTime);
+        }
+    }
+    if (currentTime - lastObjectSpawnTime >= 5000 + Math.random() * 5000) {
+        spawnObject();
+        lastObjectSpawnTime = currentTime;
+    }
 }
 // Draw game objects
 function draw() {
@@ -577,10 +666,13 @@ function draw() {
     // Draw status bar
     ctx.fillStyle = 'white';
     ctx.font = '20px Arial';
-    ctx.fillText("❤️ ".repeat(player.lives), 10, 20);
-    ctx.fillText(`        Points: ${player.points}`, 100, 20);
+    ctx.textAlign = 'left';
+    const offset = 20;
+    if (player.lives > 0)
+        ctx.fillText("❤️ ".repeat(player.lives), offset, 20);
+    ctx.fillText(`Points: ${player.points}`, offset + 150, 20);
     player.inventory.forEach((item, index) => {
-        ctx.drawImage(item.image, 500 + index * 40, 5, 30, 30);
+        ctx.drawImage(item.image, offset + 300 + index * 40, 5, 30, 30);
     });
 }
 // Set to store currently pressed keys
@@ -592,25 +684,76 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
     keysPressed.delete(e.key);
 });
-function win() {
-    alert('You have defeated Darth Vader! You win!');
-    player.x = 50;
-    player.y = canvas.height / 2 - 25;
-    player.lives = 3;
-    player.points = 0;
+function gameEnd(win) {
+    gameOver = true;
+    let opacity = 0;
+    const message = win ? 'Darth Vader is defeated! You Win!' : 'Game Over :(';
+    const fadeDuration = 2000; // 2 seconds
+    const fadeStep = 50; // milliseconds
+    const fadeIncrement = fadeStep / fadeDuration;
+    let fadeInterval = setInterval(fade, fadeStep);
+    function fade() {
+        opacity += fadeIncrement;
+        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (opacity >= 1) {
+            opacity = 1;
+            clearInterval(fadeInterval);
+            fadeInterval = null;
+            drawEndScreen();
+        }
+    }
+    function drawEndScreen() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '50px Arial';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+        ctx.font = '30px Arial';
+        ctx.fillStyle = 'white';
+        ctx.fillText('Press R to Restart', canvas.width / 2, canvas.height / 2 + 80);
+        document.addEventListener('keydown', restartGame);
+    }
+    function restartGame(event) {
+        if (event.key === 'r' || event.key === 'R') {
+            document.removeEventListener('keydown', restartGame);
+            // Reset game state and restart the game loop
+            resetGame();
+            requestAnimationFrame(gameLoop);
+        }
+    }
 }
-function lose() {
-    alert('You have been defeated! Game over!');
+document.addEventListener('keydown', function (event) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+        event.preventDefault();
+    }
+});
+function resetGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     player.x = 50;
     player.y = canvas.height / 2 - 25;
     player.lives = 3;
     player.points = 0;
+    player.inventory = [];
+    player.canGrab = false;
+    player.boom = 1;
+    player.dakka = 1;
+    player.bullets = [];
+    gameStartTime = Date.now();
+    enemies = [];
+    objects = [];
+    gameOver = false;
 }
 // Main game loop
 function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+    if (!gameOver) {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
 }
 // Start the game loop
 gameLoop();

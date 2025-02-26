@@ -8,16 +8,69 @@
     <style>
         body {
             background: #00001B; /* Dark blue color */
+            margin: 0;
         }
         canvas {
             display: block;
-            margin: 0 auto;
+            margin: 120px auto 0;
             background: #000;
         }
+        .game-overview {
+            text-align: center;
+            margin-top: 20px;
+            color: aliceblue;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        header {
+            display: flex;
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+            text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+            width: 100%;
+            text-align: center;
+            background-image: linear-gradient(
+                to right,
+                orange,
+                lightcoral,
+                rgb(122, 107, 255),
+                rebeccapurple,
+                lightblue,
+                lightgreen
+            );
+            top: 0;
+            position: fixed;
+            justify-content: center;
+            padding: auto;
+            margin: auto;
+        }
+
     </style>
 </head>
 <body>
+    <header>
+        <h1 style="text-align: center; color: aliceblue;">Hecht Invaders</h1>
+    </header>
     <canvas id="gameCanvas" width="1000" height="700"></canvas>
+    <div class="game-overview">
+        <p>Das Universum braucht dich, junger Hecht! Schwimm durch Raum und Zeit und erledige die
+            Fieslinge, die dir Darth Vader auf den Hals gehetzt hat. Unterwegs gibt es nützliche 
+            Upgrades und den ein oder anderen Schnaps, der dich wieder auf Vordermann bringt.
+        </p>
+        <p> Sammle Yoda, Prinzessin Leia und R2D2 ein! Wenn du dann noch ein Laserschwert findest
+            und unterwegs genügend Gegner erledigst, wird Darth Vader selbst auftauchen, um seine 
+            Kräfte mit dir zu messen. Möge die Macht mit dir sein!
+        </p>
+        <p> Ganz wichtig: Value the Disc! Lass keine Scheiben an dir vorbeifliegen, das tut sonst
+            ganz schön weh. Außerdem kannst du die Scheiben auch als starke Waffe gegen 
+            Darth Vaders Schergen einsetzen.
+        </p>
+        <p> Steuerung:</p>
+        <p> Pfeiltasten hoch und runter: Bewegung </p>
+        <p> Leertaste: Schießen</p>
+        <p> Enter: Nahen Gegenstand schnappen</p>
+        <p> d: Scheibe werfen</p>
+    </div>
     <script type="module" src="hecht.js"></script>
 </body>
 </html>
