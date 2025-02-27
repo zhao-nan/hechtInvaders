@@ -44,7 +44,18 @@
             padding: auto;
             margin: auto;
         }
-
+        .keys {
+            display: inline-block;
+            font-size: medium;
+            color: #333;
+            background-color: #f7f7f7;
+            border: 1px solid #b4b4b4;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 5px;
+            box-shadow: 0 3px #999;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -65,11 +76,11 @@
             ganz schön weh. Außerdem kannst du die Scheiben auch als starke Waffe gegen 
             Darth Vaders Schergen einsetzen.
         </p>
-        <p> Steuerung:</p>
-        <p> Pfeiltasten hoch und runter: Bewegung </p>
-        <p> Leertaste: Schießen</p>
-        <p> Enter: Nahen Gegenstand schnappen</p>
-        <p> d: Scheibe werfen</p>
+        <p> <span class="keys">↑</span> <span class="keys">↓</span> Bewegung 
+            | <span class="keys">SPACE</span> Schießen 
+            | <span class="keys">⏎</span>Nahen Gegenstand schnappen 
+            | <span class="keys">d</span> Scheibe werfen
+            | <span class="keys">a</span> Audio</p>
     </div>
     <script type="module" src="hecht.js"></script>
 </body>

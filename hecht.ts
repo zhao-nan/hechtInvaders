@@ -1,7 +1,40 @@
 
-// let audio = new Audio('Cantina.mp3');
-// audio.play();
 console.log('May the force be with you!');
+
+let audio = new Audio('Cantina.mp3');
+// Function to play audio
+function playAudio() {
+    audio.play().catch(error => {
+        console.error('Error playing audio:', error);
+    });
+}
+
+function toggleAudio() {
+    if (audio.paused) {
+        playAudio();
+    } else {
+        audio.pause();
+    }
+}
+
+function resetAudio() {
+    const paused = audio.paused;
+    audio = new Audio('Cantina.mp3');
+    if (!paused) playAudio();
+}
+
+function vaderAudio() {
+    const paused = audio.paused;
+    audio = new Audio('march.mp3');
+    if (!paused) playAudio();
+}
+
+// Add event listener to restart the song when it ends
+audio.addEventListener('ended', () => {
+    audio.currentTime = 0;
+    playAudio();
+});
+
 class Player {
     x: number;
     y: number;
@@ -433,7 +466,7 @@ class Enemy {
         if (now - this.lastSpawnTime > Math.random() * 10000 + 5000) {
             let rand = Math.random();
             let type = rand >= 0.5 ? EnemyType.STORMTROOPER : EnemyType.TIEFIGHTER;
-            for (let i = 0; i < Math.floor(rand * 22); i++) {
+            for (let i = 0; i < Math.floor(rand * 22) + 3; i++) {
                 spawnEnemy(type, now - gameStartTime);
             }
             this.lastSpawnTime = now;
@@ -596,6 +629,35 @@ let lastTieSpawnTime = 0;
 let lastObjectSpawnTime = 0;
 let gameStartTime = Date.now();
 let gameOver = false;
+let gameStarted = false;
+
+// Function to display the start screen
+function drawStartScreen() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const hechtImage = new Image();
+    hechtImage.src = 'img/hecht.png';
+    hechtImage.onload = () => {
+        ctx.drawImage(hechtImage, canvas.width / 2 - 150, 50, 300, 150);
+    };
+    ctx.font = 'bold 50px serif';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Hecht Invaders', canvas.width / 2, canvas.height / 2);
+    ctx.font = '20px serif';
+    ctx.fillText('Press SPACE to start', canvas.width / 2, canvas.height - 50);
+}
+
+// Event listener to start the game
+document.addEventListener('keydown', function(event) {
+    if (event.code === 'Space' && !gameStarted) {
+        gameStarted = true;
+        gameLoop();
+    }
+});
+
 
 // Initialize stars
 const stars: Star[] = [];
@@ -626,10 +688,11 @@ function spawnEnemy(t: EnemyType, elapsedTime: number) {
         width = 100;
         height = 100;
     } else if (t === EnemyType.VADER) {
-        lives = 350;
+        lives = 500;
         speed = 0.1;
         width = 100;
         height = 100;
+        vaderAudio();
     }
     const x = canvas.width;
     const y = Math.random() * (canvas.height - height - 25) + 25;
@@ -643,29 +706,25 @@ function spawnObject() {
     const height = 30;
     const x = canvas.width;
     const y = Math.random() * (canvas.height - height - 25) + 25;
-        let type: GameObjectType;
-        const random = Math.random();
-        if (random < 0.1) {
-            const availableRareTypes = rareObjectTypes.filter(t => 
-                !player.inventory.some(item => item.type === t) && 
-                !objects.some(obj => obj.type === t)
-            );
-            if (availableRareTypes.length > 0) {
-                type = availableRareTypes[Math.floor(Math.random() * availableRareTypes.length)];
-            } else {
-                type = normalObjectTypes[Math.floor(Math.random() * normalObjectTypes.length)];
-            }
+    let type: GameObjectType;
+    let availableNormalTypes = normalObjectTypes;
+    if (player.lives == 5) availableNormalTypes = availableNormalTypes.filter(t => t !== GameObjectType.SCHNAPPS);
+    if (player.shields == 5) availableNormalTypes = availableNormalTypes.filter(t => t !== GameObjectType.SHIELD);
+    if (player.inventory.filter(item => item.type === GameObjectType.DISC).length > 10) availableNormalTypes = availableNormalTypes.filter(t => t !== GameObjectType.DISC);
+    const random = Math.random();
+    if (random < 0.1) {
+        const availableRareTypes = rareObjectTypes.filter(t => 
+            !player.inventory.some(item => item.type === t) && 
+            !objects.some(obj => obj.type === t)
+        );
+        if (availableRareTypes.length > 0) {
+            type = availableRareTypes[Math.floor(Math.random() * availableRareTypes.length)];
         } else {
-            type = normalObjectTypes[Math.floor(Math.random() * normalObjectTypes.length)];
+            type = availableNormalTypes[Math.floor(Math.random() * availableNormalTypes.length)];
         }
-        if (type === GameObjectType.DISC && 
-            player.inventory.filter(item => item.type === GameObjectType.DISC).length > 10) {
-            type = normalObjectTypes.filter(t => t !== GameObjectType.DISC)[Math.floor(Math.random() * (normalObjectTypes.length - 1))];
-        }
-        if (type === GameObjectType.SCHNAPPS &&
-            player.lives >= 5) {
-            type = normalObjectTypes.filter(t => t !== GameObjectType.SCHNAPPS)[Math.floor(Math.random() * (normalObjectTypes.length - 1))];
-        }
+    } else {
+        type = availableNormalTypes[Math.floor(Math.random() * availableNormalTypes.length)];
+    }
     objects.push(new GameObject(x, y, width, height, type));
 }
 
@@ -770,6 +829,13 @@ function draw() {
     player.inventory.forEach((item, index) => {
         ctx.drawImage(item.image, offset + 300 + index * 40, 5, 30, 30);
     });
+
+    // Draw audio icon
+    const audioIcon = new Image();
+    audioIcon.src = audio.paused ? 'img/speaker-off.png' : 'img/speaker.png';
+    audioIcon.onload = () => {
+        ctx.drawImage(audioIcon, canvas.width - 40, 10, 300, 300);
+    };
 }
  
 // Set to store currently pressed keys
@@ -784,11 +850,17 @@ window.addEventListener('keyup', (e) => {
     keysPressed.delete(e.key);
 });
 
+window.addEventListener('keypress', (e) => {
+    if (e.key === 'a') {
+        toggleAudio();
+    }
+});
+
 function gameEnd(win: boolean) {
     gameOver = true;
     let opacity = 0;
     const message = win ? 'Darth Vader is defeated! You Win!' : 'Game Over :(';
-    const fadeDuration = 2000; // 2 seconds
+    const fadeDuration = 3000; // 2 seconds
     const fadeStep = 50; // milliseconds
     const fadeIncrement = fadeStep / fadeDuration;
     let fadeInterval = setInterval(fade, fadeStep);
@@ -809,14 +881,19 @@ function gameEnd(win: boolean) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = '50px Arial';
+        const hechtImage = new Image();
+        hechtImage.src = win ? 'img/hecht.png' : 'img/hecht-dmg.png';
+        hechtImage.onload = () => {
+            ctx.drawImage(hechtImage, canvas.width / 2 - 150, 50, 300, 150);
+        };
+        ctx.font = 'bold 50px serif';
         ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(message, canvas.width / 2, canvas.height / 2);
-        ctx.font = '30px Arial';
+        ctx.font = '20px serif';
         ctx.fillStyle = 'white';
-        ctx.fillText('Press R to Restart', canvas.width / 2, canvas.height / 2 + 80);
+        ctx.fillText('Press R to Restart', canvas.width / 2, canvas.height - 50);
         document.addEventListener('keydown', restartGame);
     }
 
@@ -852,6 +929,8 @@ function resetGame() {
     enemies = [];
     objects = [];
     gameOver = false;
+
+    resetAudio();
 }
 
 // Main game loop
@@ -864,4 +943,4 @@ function gameLoop() {
 }
 
 // Start the game loop
-gameLoop();
+drawStartScreen();
