@@ -2,16 +2,10 @@
 console.log('May the force be with you!');
 
 let audio = new Audio('Cantina.mp3');
-// Function to play audio
-function playAudio() {
-    audio.play().catch(error => {
-        console.error('Error playing audio:', error);
-    });
-}
 
 function toggleAudio() {
     if (audio.paused) {
-        playAudio();
+        audio.play();
     } else {
         audio.pause();
     }
@@ -19,20 +13,22 @@ function toggleAudio() {
 
 function resetAudio() {
     const paused = audio.paused;
+    audio.pause();
     audio = new Audio('Cantina.mp3');
-    if (!paused) playAudio();
+    if (!paused) audio.play();
 }
 
 function vaderAudio() {
     const paused = audio.paused;
+    audio.pause();
     audio = new Audio('march.mp3');
-    if (!paused) playAudio();
+    if (!paused) audio.play();
 }
 
 // Add event listener to restart the song when it ends
 audio.addEventListener('ended', () => {
     audio.currentTime = 0;
-    playAudio();
+    audio.play();
 });
 
 class Player {
@@ -93,7 +89,7 @@ class Player {
         if (currentTime - this.lastShotTime >= 1000 / this.dakka) {
             this.bullets.push(
                 new Bullet(this.x + this.width, this.y + this.height / 2,
-                    (this.boom + 8)/2, 1 + this.dakka, true, false, this.boom));
+                    (this.boom + 8)/2, 2 + this.dakka, true, false, this.boom));
             this.lastShotTime = currentTime;
             this.isShooting = true;
             setTimeout(() => this.isShooting = false, 100);
@@ -455,7 +451,7 @@ class Enemy {
     VaderShoot() {
         const now = Date.now();
         if (now - this.lastShotTime > Math.random() * 1000 + 2000) {
-            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 5, Math.random()*(-10) - 2, false, false, 3);
+            const bullet = new Bullet(this.x + this.width / 2, this.y + this.height / 2, 5, Math.random()*(-10) - 4, false, false, 3);
             this.bullets.push(bullet);
             this.lastShotTime = now;
         }
