@@ -828,6 +828,5 @@ function gameLoop() {
     }
 }
 // Start the game loop
-// drawStartScreen();
-gameEnd(true);
+drawStartScreen();
 //# sourceMappingURL=hecht.js.map

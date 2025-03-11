@@ -942,5 +942,4 @@ function gameLoop() {
 }
 
 // Start the game loop
-// drawStartScreen();
-gameEnd(true);
+drawStartScreen();
