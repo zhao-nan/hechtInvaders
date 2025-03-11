@@ -641,7 +641,7 @@ function drawStartScreen() {
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Hecht Invaders', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('HECHT WARS', canvas.width / 2, canvas.height / 2);
     ctx.font = '20px serif';
     ctx.fillText('Press SPACE to start', canvas.width / 2, canvas.height - 50);
 }
