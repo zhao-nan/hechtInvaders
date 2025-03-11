@@ -1,4 +1,4 @@
-console.log('May the force be with you!');
+console.log('May the pike be with you!');
 let audio = new Audio('Cantina.mp3');
 function toggleAudio() {
     if (audio.paused) {
@@ -750,7 +750,8 @@ window.addEventListener('keypress', (e) => {
 function gameEnd(win) {
     gameOver = true;
     let opacity = 0;
-    const message = win ? 'Darth Vader is defeated! You Win!' : 'Game Over :(';
+    const message = win ? 'SCHNAPP! Darth Vader ist besiegt!' : 'Game Over :(';
+    const addMessage = win ? 'May we meet on May the 10th :)' : '';
     const fadeDuration = 3000; // 2 seconds
     const fadeStep = 50; // milliseconds
     const fadeIncrement = fadeStep / fadeDuration;
@@ -780,6 +781,8 @@ function gameEnd(win) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+        ctx.font = 'bold 50px serif';
+        ctx.fillText(addMessage, canvas.width / 2, canvas.height / 2 + 75);
         ctx.font = '20px serif';
         ctx.fillStyle = 'white';
         ctx.fillText('Press R to Restart', canvas.width / 2, canvas.height - 50);
@@ -825,5 +828,6 @@ function gameLoop() {
     }
 }
 // Start the game loop
-drawStartScreen();
+// drawStartScreen();
+gameEnd(true);
 //# sourceMappingURL=hecht.js.map
