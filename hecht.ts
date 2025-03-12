@@ -650,6 +650,7 @@ function drawStartScreen() {
 document.addEventListener('keydown', function(event) {
     if (event.code === 'Space' && !gameStarted) {
         gameStarted = true;
+        gameStartTime = Date.now();
         gameLoop();
     }
 });
